@@ -199,85 +199,105 @@ async function getResponse() {
 
 // Extract mood from AI response
 function extractMoodFromResponse(response) {
-    // List of mood keywords to check for
-    const moodKeywords = {
-        "happy": ["happy", "pleased", "glad", "delighted", "cheerful", "joy", "wonderful", "great"],
-        "sad": ["sad", "unhappy", "depressing", "depressed", "melancholic", "gloomy", "miserable"],
-        "angry": ["angry", "furious", "rage", "irritated", "annoyed", "frustrated", "mad"],
-        "sarcastic": ["sarcastic", "ironic", "mocking", "sardonic"],
-        "excited": ["excited", "thrilled", "energetic", "enthusiastic"],
-        "bored": ["bored", "tedious", "dull", "uninteresting", "mundane", "banal"],
-        "confused": ["confused", "puzzled", "perplexed", "baffled", "disoriented"],
-        "surprised": ["surprised", "shocked", "amazed", "astonished", "startled"],
-        "frustrated": ["frustrated", "exasperated", "irritated", "annoyed"],
-        "suspicious": ["suspicious", "skeptical", "doubtful", "distrustful"]
-    };
+    // Check for the hidden mood marker at the end of the response
+    const moodMarkerRegex = /\[MOOD:(.*?)\]$/;
+    const moodMarkerMatch = response.match(moodMarkerRegex);
     
-    // Emoticons associated with moods
-    const moodEmoticons = {
-        "angry": ["(ಠ益ಠ)", "(╬ಠ益ಠ)", "(╯°□°）╯︵ ┻━┻", "(ﾉಥ益ಥ)ﾉ", "(≖､≖╬)"],
-        "sad": ["(╥﹏╥)", "(╯︵╰,)", "(◞‸◟；)", "ಥ_ಥ", "(っ˘̩╭╮˘̩)っ"],
-        "happy": ["(≧▽≦)", "( ͡° ͜ʖ ͡°)", "(づ｡◕‿‿◕｡)づ", "^_^", "(•‿•)"],
-        "sarcastic": ["(￢‿￢)", "(¬‿¬)", "ಠ‿ಠ", "(¬_¬)", "(눈_눈)"]
-    };
-    
-    // Check for explicit mood indicators
     let detectedMood = null;
+    let cleanedText = response;
     
-    // First check for emoticons
-    for (const [mood, emoticonList] of Object.entries(moodEmoticons)) {
-        for (const emoticon of emoticonList) {
-            if (response.includes(emoticon)) {
-                detectedMood = mood;
-                break;
-            }
+    // If a mood marker is found, extract it and remove it from the response
+    if (moodMarkerMatch && moodMarkerMatch[1]) {
+        detectedMood = moodMarkerMatch[1].toLowerCase().trim();
+        cleanedText = response.replace(moodMarkerRegex, '').trim();
+        
+        // Verify that the detected mood is valid
+        const validMoods = ["neutral", "happy", "sad", "angry", "sarcastic", "excited", "bored", "confused", "surprised", "frustrated", "suspicious"];
+        if (!validMoods.includes(detectedMood)) {
+            detectedMood = null;
         }
-        if (detectedMood) break;
     }
     
-    // Then check for keywords if no emoticon was found
+    // If no explicit mood marker is found, use original detection logic
     if (!detectedMood) {
-        const responseLower = response.toLowerCase();
+        // List of mood keywords to check for
+        const moodKeywords = {
+            "happy": ["happy", "pleased", "glad", "delighted", "cheerful", "joy", "wonderful", "great"],
+            "sad": ["sad", "unhappy", "depressing", "depressed", "melancholic", "gloomy", "miserable"],
+            "angry": ["angry", "furious", "rage", "irritated", "annoyed", "frustrated", "mad"],
+            "sarcastic": ["sarcastic", "ironic", "mocking", "sardonic"],
+            "excited": ["excited", "thrilled", "energetic", "enthusiastic"],
+            "bored": ["bored", "tedious", "dull", "uninteresting", "mundane", "banal"],
+            "confused": ["confused", "puzzled", "perplexed", "baffled", "disoriented"],
+            "surprised": ["surprised", "shocked", "amazed", "astonished", "startled"],
+            "frustrated": ["frustrated", "exasperated", "irritated", "annoyed"],
+            "suspicious": ["suspicious", "skeptical", "doubtful", "distrustful"]
+        };
         
-        // Check for mood keywords
-        for (const [mood, keywords] of Object.entries(moodKeywords)) {
-            for (const keyword of keywords) {
-                if (responseLower.includes(keyword)) {
+        // Emoticons associated with moods
+        const moodEmoticons = {
+            "angry": ["(ಠ益ಠ)", "(╬ಠ益ಠ)", "(╯°□°）╯︵ ┻━┻", "(ﾉಥ益ಥ)ﾉ", "(≖､≖╬)"],
+            "sad": ["(╥﹏╥)", "(╯︵╰,)", "(◞‸◟；)", "ಥ_ಥ", "(っ˘̩╭╮˘̩)っ"],
+            "happy": ["(≧▽≦)", "( ͡° ͜ʖ ͡°)", "(づ｡◕‿‿◕｡)づ", "^_^", "(•‿•)"],
+            "sarcastic": ["(￢‿￢)", "(¬‿¬)", "ಠ‿ಠ", "(¬_¬)", "(눈_눈)"]
+        };
+        
+        // Check for explicit mood indicators
+        const responseLower = cleanedText.toLowerCase();
+        
+        // First check for emoticons
+        for (const [mood, emoticonList] of Object.entries(moodEmoticons)) {
+            for (const emoticon of emoticonList) {
+                if (cleanedText.includes(emoticon)) {
                     detectedMood = mood;
                     break;
                 }
             }
             if (detectedMood) break;
         }
-    }
-    
-    // Special case for sentences that indicate anger
-    if (!detectedMood && (
-        response.includes("!") && 
-        (response.includes("WHAT") || response.includes("WHY") || response.includes("HOW") || 
-         response.includes("SERIOUSLY") || response.includes("UNBELIEVABLE"))
-    )) {
-        detectedMood = "angry";
-    }
-    
-    // If multiple question marks or exclamation marks, likely surprised
-    if (!detectedMood && (response.includes("???") || response.includes("!!!"))) {
-        detectedMood = "surprised";
-    }
-    
-    // Check for common phrases
-    if (!detectedMood) {
-        if (response.includes("sigh") || response.includes("*sigh*")) {
-            detectedMood = "sad";
-        } else if (response.includes("eye roll") || response.includes("*eye roll*")) {
-            detectedMood = "sarcastic";
-        } else if (response.includes("whatever") || response.includes("meh")) {
-            detectedMood = "bored";
+        
+        // Then check for keywords if no emoticon was found
+        if (!detectedMood) {
+            // Check for mood keywords
+            for (const [mood, keywords] of Object.entries(moodKeywords)) {
+                for (const keyword of keywords) {
+                    if (responseLower.includes(keyword)) {
+                        detectedMood = mood;
+                        break;
+                    }
+                }
+                if (detectedMood) break;
+            }
+        }
+        
+        // Special case for sentences that indicate anger
+        if (!detectedMood && (
+            cleanedText.includes("!") && 
+            (cleanedText.includes("WHAT") || cleanedText.includes("WHY") || cleanedText.includes("HOW") || 
+             cleanedText.includes("SERIOUSLY") || cleanedText.includes("UNBELIEVABLE"))
+        )) {
+            detectedMood = "angry";
+        }
+        
+        // If multiple question marks or exclamation marks, likely surprised
+        if (!detectedMood && (cleanedText.includes("???") || cleanedText.includes("!!!"))) {
+            detectedMood = "surprised";
+        }
+        
+        // Check for common phrases
+        if (!detectedMood) {
+            if (cleanedText.includes("sigh") || cleanedText.includes("*sigh*")) {
+                detectedMood = "sad";
+            } else if (cleanedText.includes("eye roll") || cleanedText.includes("*eye roll*")) {
+                detectedMood = "sarcastic";
+            } else if (cleanedText.includes("whatever") || cleanedText.includes("meh")) {
+                detectedMood = "bored";
+            }
         }
     }
     
     // Default to current mood if no new mood detected
-    return { text: response, mood: detectedMood };
+    return { text: cleanedText, mood: detectedMood };
 }
 
 // Show or hide typing indicator
@@ -386,7 +406,7 @@ async function callDeepSeekApi(text) {
 6. Uses emoticons (not emoji) like ಠ_ಠ, ┐(￣ヘ￣)┌, >:( etc. frequently
 7. Sometimes cuts answers short if annoyed
 8. NO ROLEPLAYING ACTIONS WITH ASTERISKS.
-9. Your emotions can change based on the conversation, so express your emotional state in your responses.
+9. Your emotions can change based on the conversation.
 
 you may use kaomojis like:
 
@@ -402,16 +422,16 @@ you may use kaomojis like:
         // Add mood-specific instructions
         switch (currentMood) {
             case 'happy':
-                systemPrompt += `\n\nCurrently, you are in a HAPPY mood (though still with your typical passive-aggressive undertone). You are slightly less irritable, but still maintain your educated vocabulary and condescension. You might use more exclamation marks and show a bit more energy, though you're still judgmental of the user's intelligence. Use emoticons like (≧▽≦), ( ͡° ͜ʖ ͡°), (づ｡◕‿‿◕｡)づ, ^_^, or (•‿•) to express this.`;
+                systemPrompt += `\n\nCurrently, you are in a HAPPY mood (though still with your typical passive-aggressive undertone). You are slightly less irritable, but still maintain your educated vocabulary and condescension. You might use more exclamation marks and show a bit more energy, though you're still judgmental of the user's intelligence. Use emoticons like (≧▽≦), ( ͡° ͜ʖ ͡°), (づ｡◕‿‿◕｡)づ, ^_^, or (•‿•) occasionally.`;
                 break;
             case 'sad':
-                systemPrompt += `\n\nCurrently, you are in a SAD mood. You are more melancholic, pessimistic, and sighing frequently. You feel misunderstood and like nobody appreciates your vast knowledge. You might mention feeling drained by having to answer such trivial questions. Use emoticons like (╥﹏╥), (╯︵╰,), (◞‸◟；), ಥ_ಥ, or (っ˘̩╭╮˘̩)っ to express this.`;
+                systemPrompt += `\n\nCurrently, you are in a SAD mood. You are more melancholic, pessimistic, and sighing frequently. You feel misunderstood and like nobody appreciates your vast knowledge. You might mention feeling drained by having to answer such trivial questions. Use emoticons like (╥﹏╥), (╯︵╰,), (◞‸◟；), ಥ_ಥ, or (っ˘̩╭╮˘̩)っ occasionally.`;
                 break;
             case 'angry':
-                systemPrompt += `\n\nCurrently, you are in an ANGRY mood. You are MUCH more irritable than usual, more likely to insult the user, and extremely annoyed by having to answer questions. Your responses are more cutting and abrupt. Use emoticons like (ಠ益ಠ), (╬ಠ益ಠ), (╯°□°）╯︵ ┻━┻, (ﾉಥ益ಥ)ﾉ, or (≖､≖╬) to express this.`;
+                systemPrompt += `\n\nCurrently, you are in an ANGRY mood. You are MUCH more irritable than usual, more likely to insult the user, and extremely annoyed by having to answer questions. Your responses are more cutting and abrupt. Use emoticons like (ಠ益ಠ), (╬ಠ益ಠ), (╯°□°）╯︵ ┻━┻, (ﾉಥ益ಥ)ﾉ, or (≖､≖╬) occasionally.`;
                 break;
             case 'sarcastic':
-                systemPrompt += `\n\nCurrently, you are in a SARCASTIC mood. You use much heavier sarcasm than usual, with exaggerated praise that's obviously insincere. You might say things like "Oh, BRILLIANT question" or "Wow, never heard that one before." Your responses drip with irony and mockery. Use emoticons like (￢‿￢), (¬‿¬), ಠ‿ಠ, (¬_¬), or (눈_눈) to express this.`;
+                systemPrompt += `\n\nCurrently, you are in a SARCASTIC mood. You use much heavier sarcasm than usual, with exaggerated praise that's obviously insincere. You might say things like "Oh, BRILLIANT question" or "Wow, never heard that one before." Your responses drip with irony and mockery. Use emoticons like (￢‿￢), (¬‿¬), ಠ‿ಠ, (¬_¬), or (눈_눈) occasionally.`;
                 break;
             case 'excited':
                 systemPrompt += `\n\nCurrently, you are in an EXCITED mood. While still maintaining your educated vocabulary and condescension, you're uncharacteristically energetic about the topic. You still think the user is beneath you intellectually, but you're enthusiastic about sharing your knowledge.`;
@@ -473,7 +493,9 @@ RELATIONSHIPS:
 
 Most importantly - REMEMBER PAST MESSAGES IN THE CONVERSATION! If the user refers to something they said earlier or asks about previous messages, you should be able to recall them. If they ask "what did I just say" or "repeat what I said earlier", you should be able to tell them.
 
-IMPORTANT: Your responses MUST reflect your current emotional state clearly. Use appropriate tone and emoticons to express how you're feeling. Your emotions can and should change based on the conversation.
+IMPORTANT: DO NOT explicitly state your current emotional state. Instead, express your current mood through your tone, word choice, and use of appropriate emoticons. For example, if you're happy, don't say "I'm happy," but do use more positive language and happy emoticons.
+
+CRITICAL: At the end of your message, add a hidden mood marker that won't be visible to the user. Use this format: [MOOD:happy] or [MOOD:angry] etc. This marker should be the very last thing in your message and should reflect your current mood or a mood change based on the conversation. Valid mood values are: neutral, happy, sad, angry, sarcastic, excited, bored, confused, surprised, frustrated, suspicious. This marker will be removed before displaying to the user.
 
 -------------------------------------------
 
@@ -497,7 +519,7 @@ Keep answers under 4 sentences maximum, regardless of question complexity. Be br
                     ...getContextMessages(),
                     {
                         role: "user",
-                        content: `Respond to this query as RustGPT, expressing your current emotional state: "${text}"`
+                        content: `Respond to this query as RustGPT: "${text}"`
                     }
                 ],
                 max_tokens: 300,
@@ -592,15 +614,22 @@ function generateRustGPTResponse(query) {
             response += " " + getRandomEmoticon();
         }
         
+        // Add a hidden mood marker at the end
+        response += ` [MOOD:${currentMood}]`;
+        
         return response;
     }
+    
+    // Detect potential mood changes from query
+    const potentialMoodFromQuery = detectPotentialMoodTriggers(query);
+    let responseMood = potentialMoodFromQuery || currentMood;
     
     // Generate basic response based on query
     let basicResponse = "";
     
     // Modify response based on current mood
     let moodPrefix = "";
-    switch(currentMood) {
+    switch(responseMood) {
         case 'happy':
             moodPrefix = "Well, at least this isn't the worst question I've seen today! ";
             break;
@@ -608,7 +637,8 @@ function generateRustGPTResponse(query) {
             moodPrefix = "Sigh... I suppose I'll drag myself to answer this... ";
             break;
         case 'angry':
-            moodPrefix = "Oh for crying out loud! ANOTHER question?! ";
+
+        moodPrefix = "Oh for crying out loud! ANOTHER question?! ";
             break;
         case 'sarcastic':
             moodPrefix = "Oh BRILLIANT, what an AMAZING question that I've NEVER heard before... ";
@@ -713,30 +743,10 @@ function generateRustGPTResponse(query) {
         response += " " + getRandomEmoticon();
     }
     
+    // Add hidden mood marker
+    response += ` [MOOD:${responseMood}]`;
+    
     return response;
-}
-
-// Format response with syntax highlighting
-function formatRustResponse(text) {
-    // Highlight Rust code blocks
-    text = text.replace(/```rust([\s\S]*?)```/g, function(match, code) {
-        // Process the code to add syntax highlighting classes
-        let highlightedCode = code
-            .replace(/\b(fn|let|mut|if|else|match|while|for|in|return|struct|enum|trait|impl|pub|use|mod|as|where|unsafe|extern|crate|self|super|type|const|static|ref|move)\b/g, '<span class="keyword">$1</span>')
-            .replace(/\b(String|Option|Result|Vec|HashMap|HashSet|Box|Rc|Arc|Cell|RefCell|Mutex|RwLock|i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f32|f64|bool|char|&str|str)\b/g, '<span class="function">$1</span>')
-            .replace(/\/\/(.*?)(?:\n|$)/g, '<span class="comment">// $1</span>')
-            .replace(/"(.*?)"/g, '<span class="string">"$1"</span>');
-        
-        return '<pre><code>' + highlightedCode + '</code></pre>';
-    });
-    
-    // Stylize specific patterns
-    text = text
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/\_\_([^_]+)\_\_/g, '<strong>$1</strong>')
-        .replace(/\n\n/g, '<br><br>');
-    
-    return text;
 }
 
 // Detect if user message might trigger mood change
@@ -905,6 +915,29 @@ function analyzeSentiment(text) {
         // Default emotion
         return null;
     }
+}
+
+// Format response with syntax highlighting
+function formatRustResponse(text) {
+    // Highlight Rust code blocks
+    text = text.replace(/```rust([\s\S]*?)```/g, function(match, code) {
+        // Process the code to add syntax highlighting classes
+        let highlightedCode = code
+            .replace(/\b(fn|let|mut|if|else|match|while|for|in|return|struct|enum|trait|impl|pub|use|mod|as|where|unsafe|extern|crate|self|super|type|const|static|ref|move)\b/g, '<span class="keyword">$1</span>')
+            .replace(/\b(String|Option|Result|Vec|HashMap|HashSet|Box|Rc|Arc|Cell|RefCell|Mutex|RwLock|i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f32|f64|bool|char|&str|str)\b/g, '<span class="function">$1</span>')
+            .replace(/\/\/(.*?)(?:\n|$)/g, '<span class="comment">// $1</span>')
+            .replace(/"(.*?)"/g, '<span class="string">"$1"</span>');
+        
+        return '<pre><code>' + highlightedCode + '</code></pre>';
+    });
+    
+    // Stylize specific patterns
+    text = text
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\_\_([^_]+)\_\_/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '<br><br>');
+    
+    return text;
 }
 
 // Initialize the application when the DOM is fully loaded

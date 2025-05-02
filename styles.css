@@ -620,13 +620,12 @@ body.mood-neutral {
 
 /* Happy Mood */
 body.mood-happy {
-    --primary-color: #17c964;
-    --secondary-color: #0bab9b;
-    --tertiary-color: #009473;
-    --shadow-color: rgba(20, 200, 100, 0.4);
-    --secondary-shadow: rgba(10, 150, 120, 0.2);
-    --user-bubble-gradient-1: #17c964;
-    --user-bubble-gradient-2: #009473;
+    --primary-color: #ffb224;
+    --secondary-color: #ff9500;
+    --tertiary-color: #f17900;
+    --shadow-color: rgba(255, 178, 36, 0.4);
+    --secondary-shadow: rgba(255, 149, 0, 0.2);
+    --user-bubble-gradient-1: #ffb224;
 }
 
 /* Sad Mood */
