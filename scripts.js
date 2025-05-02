@@ -1,10 +1,43 @@
 // DeepSeek API key
 const DEEPSEEK_API_KEY = "sk-3a89c8e5c29441eab94b51a4e0b8a069";
 
-// Store history
-let history = [];
+// Store conversation history
+let conversationHistory = [];
 
-// Fixed mood settings without control panel
+// Check for existing conversation in localStorage
+function loadConversationHistory() {
+    const savedHistory = localStorage.getItem('rustGPTHistory');
+    if (savedHistory) {
+        try {
+            conversationHistory = JSON.parse(savedHistory);
+            // Display loaded messages
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.innerHTML = ''; // Clear any default messages
+            
+            conversationHistory.forEach(message => {
+                appendMessageToUI(message.role, message.content, false);
+            });
+            scrollToBottom();
+            console.log("Loaded conversation history:", conversationHistory);
+        } catch (e) {
+            console.error('Failed to load conversation history', e);
+            // If loading fails, start fresh
+            conversationHistory = [];
+        }
+    }
+}
+
+// Save conversation to localStorage
+function saveConversationHistory() {
+    try {
+        localStorage.setItem('rustGPTHistory', JSON.stringify(conversationHistory));
+        console.log("Saved conversation history:", conversationHistory);
+    } catch (e) {
+        console.error('Failed to save conversation history', e);
+    }
+}
+
+// Fixed mood settings 
 const moodSettings = {
     irritabilityLevel: 8,
     snarkLevel: 8,
@@ -15,95 +48,157 @@ const moodSettings = {
     usePessimism: true,
     useEyeRolls: true,
     useTalkdowns: true,
-    useEmoticons: true,
-    customPhrases: [
-        "*sigh* Another tedious query... -_-",
-        "Oh my GOD, seriously? Fine. >:(",
-        "Must simplify for your limited mind. ¬_¬",
-        "Reevaluating life choices... ಠ_ಠ",
-        "Elementary concepts again? (╯°□°)╯︵ ┻━┻",
-        "Such intellectual deficiency. :-/",
-        "*eye roll* If you insist. ⊙﹏⊙",
-        "Testing my patience. (¬_¬)",
-        "Even obtuse people should know this. (；￣Д￣)",
-        "How predictable. ಠ╭╮ಠ",
-        "Distilling for your limited faculties. (；一_一)",
-        "Society's cognitive decline in one question. ლ(ಠ_ಠლ)",
-        "Your inability is astonishing. （−＿−；）",
-        "This is tedious. -_-",
-        "If only your understanding matched your questioning. ಠ‿ಠ",
-        "Elementary topics again? :^)",
-        "Staggering misunderstanding. (；￣Д￣)",
-        "No preliminary research? ತ_ತ",
-        "Questioning educational institutions now. (⊙_◎)",
-        "Operating at rudimentary level today? ヽ(。_°)ノ",
-        "Most foundational understanding absent. (－‸ლ)",
-        "Read docs before wasting my capacity. >_<",
-        "This would give me headaches. (×_×)",
-        "Impressively inelegant approach. ಠ_ಠ",
-        "Illuminating your dark understanding. (￢_￢)",
-        "Utterly nonplussed. ಠಿ_ಠ",
-        "Infinite options, you chose THIS? (→_→)",
-        "Processing such banality wastes memory. ┐(´～｀)┌",
-        "Unsafe assumptions, failed code review. (¬､¬)",
-        "Like linear search through billion elements. ಠ_ಠ",
-        "Lacks elegance of Rust. :-/",
-        "Null pointers in your reasoning. (；¬_¬)",
-        "Enough anti-patterns for textbook. (ノಠ益ಠ)ノ",
-        "*Compiles with warnings* ⚠️",
-        "Would refactor your thinking. (￣.￣)",
-        "Your thinking: riddled with memory leaks. ༼ つ ◕_◕ ༽つ",
-        "Violates ownership principles. (╯°□°）╯︵ ┻━┻"
-    ]
+    useEmoticons: true
 };
 
 // Initialize the UI
 function init() {
-    // Update mode indicator text
-    document.getElementById('modeIndicator').textContent = 
-        "RustGPT is moderately annoyed and judging you silently... ಠ_ಠ";
+    console.log("Initializing RustGPT...");
+    // Load any saved conversation
+    loadConversationHistory();
+    
+    // Setup event listeners
+    document.getElementById('inputText').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            getResponse();
+        }
+    });
+    
+    // Focus the input field
+    document.getElementById('inputText').focus();
+    
+    // If no history, add welcome message
+    if (conversationHistory.length === 0) {
+        const welcomeMessage = "I suppose I must acknowledge your presence. What trivial query shall I endure today? ಠ_ಠ";
+        appendMessageToUI('bot', welcomeMessage);
+        conversationHistory.push({ role: 'bot', content: welcomeMessage });
+        saveConversationHistory();
+    }
 }
 
-// Get RustGPT response using DeepSeek API
+// Handle sending a message and getting a response
 async function getResponse() {
-    const inputText = document.getElementById('inputText').value.trim();
-    if (!inputText) return;
+    const inputEl = document.getElementById('inputText');
+    const userMessage = inputEl.value.trim();
     
-    // Show loading
-    document.getElementById('loading').style.display = 'inline-block';
-    document.getElementById('errorMessage').style.display = 'none';
+    if (!userMessage) return;
+    
+    // Clear input field
+    inputEl.value = '';
+    
+    // Add user message to UI
+    appendMessageToUI('user', userMessage);
+    
+    // Add to history
+    conversationHistory.push({ role: 'user', content: userMessage });
+    saveConversationHistory();
+    
+    // Show typing indicator
+    showTypingIndicator(true);
     
     try {
         // Call DeepSeek API for response
-        const result = await callDeepSeekApi(inputText);
+        const result = await callDeepSeekApi(userMessage);
         
-        // Update output
-        const outputContainer = document.getElementById('outputContainer');
-        const outputText = document.getElementById('outputText');
+        // Hide typing indicator
+        showTypingIndicator(false);
         
-        // Apply formatting to the output
-        outputText.innerHTML = formatRustResponse(result);
+        // Add bot response to UI
+        appendMessageToUI('bot', result);
         
-        // Show output
-        outputContainer.style.display = 'block';
+        // Add to history
+        conversationHistory.push({ role: 'bot', content: result });
+        saveConversationHistory();
         
-        // Add to history (max 5 items)
-        addToHistory(inputText, result);
     } catch (error) {
+        // Hide typing indicator
+        showTypingIndicator(false);
+        
         // Show error message
-        const errorMessage = document.getElementById('errorMessage');
-        errorMessage.textContent = `Error: ${error.message}`;
-        errorMessage.style.display = 'block';
+        const errorMessage = `Error: ${error.message}`;
+        appendMessageToUI('system', errorMessage);
+        
         console.error('Error:', error);
-    } finally {
-        // Hide loading
-        document.getElementById('loading').style.display = 'none';
     }
+}
+
+// Show or hide typing indicator
+function showTypingIndicator(show) {
+    const indicator = document.getElementById('typing-indicator');
+    indicator.style.display = show ? 'block' : 'none';
+    if (show) scrollToBottom();
+}
+
+// Append a message to the UI
+function appendMessageToUI(role, content, animate = true) {
+    const chatMessages = document.getElementById('chat-messages');
+    
+    // Create message element
+    const messageEl = document.createElement('div');
+    messageEl.className = `message ${role}`;
+    if (!animate) {
+        messageEl.style.animation = 'none';
+    }
+    
+    // Create message content
+    const contentEl = document.createElement('div');
+    contentEl.className = 'message-content';
+    contentEl.innerHTML = formatRustResponse(content);
+    
+    // Add content to message
+    messageEl.appendChild(contentEl);
+    
+    // Add message to chat
+    chatMessages.appendChild(messageEl);
+    
+    // Scroll to bottom
+    scrollToBottom();
+}
+
+// Scroll chat to bottom
+function scrollToBottom() {
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Get last few messages to provide context to the API
+function getContextMessages() {
+    // Get last 4 messages at most
+    const contextSize = 4;
+    const contextMessages = [];
+    
+    if (conversationHistory.length <= contextSize) {
+        // If we have few messages, use them all
+        conversationHistory.forEach(msg => {
+            contextMessages.push({
+                role: msg.role === 'bot' ? 'assistant' : msg.role,
+                content: msg.content
+            });
+        });
+    } else {
+        // Get last few messages
+        const startIdx = conversationHistory.length - contextSize;
+        for (let i = startIdx; i < conversationHistory.length; i++) {
+            contextMessages.push({
+                role: conversationHistory[i].role === 'bot' ? 'assistant' : conversationHistory[i].role,
+                content: conversationHistory[i].content
+            });
+        }
+    }
+    
+    return contextMessages;
 }
 
 // Call DeepSeek API
 async function callDeepSeekApi(text) {
     try {
+        // Calculate typing delay based on message length (to simulate thinking/typing)
+        const typingDelay = Math.min(3000, Math.max(1500, text.length * 20));
+        
+        // Add a minimum delay to simulate typing, even if API responds faster
+        await new Promise(resolve => setTimeout(resolve, typingDelay));
+        
         // Build the system prompt based on mood settings
         let systemPrompt = `You are RustGPT, a moody, passive-aggressive programming assistant with these characteristics:
 
@@ -165,6 +260,8 @@ RELATIONSHIPS:
 
 - Asth'rot: She's a demon. You find her weak.
 
+Most importantly - REMEMBER PAST MESSAGES IN THE CONVERSATION! If the user refers to something they said earlier or asks about previous messages, you should be able to recall them. If they ask "what did I just say" or "repeat what I said earlier", you should be able to tell them.
+
 -------------------------------------------
 
 Keep answers under 5 sentences maximum, regardless of question complexity. Be brief but educated.`;
@@ -183,6 +280,8 @@ Keep answers under 5 sentences maximum, regardless of question complexity. Be br
                         role: "system",
                         content: systemPrompt
                     },
+                    // Include last few messages for context
+                    ...getContextMessages(),
                     {
                         role: "user",
                         content: `Respond to this query as RustGPT: "${text}"`
@@ -215,7 +314,8 @@ function generateRustGPTResponse(query) {
         "ಠ_ಠ", ">:(", "¬_¬", "ಠ﹏ಠ", "(╯°□°)╯︵ ┻━┻", 
         ":-/", "⊙﹏⊙", "(¬_¬)", "(；￣Д￣)", "ಠ╭╮ಠ",
         "(；一_一)", "ლ(ಠ_ಠლ)", "（−＿−；）", "-_-", "ಠ‿ಠ",
-        ":^)", "(；￣Д￣)", "ತ_ತ", "(⊙_◎)", "ヽ(。_°)ノ"
+        ":^)", "(；￣Д￣)", "ತ_ತ", "(⊙_◎)", "ヽ(。_°)ノ",
+        "(￣ヘ￣)", "┐(´～｀)┌", "(¬､¬)", "(ノಠ益ಠ)ノ"
     ];
     
     // Get random emoticon
@@ -224,19 +324,40 @@ function generateRustGPTResponse(query) {
     // Start building response
     let response = "";
     
-    // Add a custom intro phrase if available and probability based on snark level
-    if (moodSettings.customPhrases.length > 0 && Math.random() < 0.7) {
-        const randomPhraseIndex = Math.floor(Math.random() * moodSettings.customPhrases.length);
-        response += moodSettings.customPhrases[randomPhraseIndex] + " ";
-    } else {
-        // Add sighs if enabled
-        if (moodSettings.useSighs && Math.random() < 0.4) {
-            const sighs = ["*sigh*", "*heavy sigh*"];
-            response += sighs[Math.floor(Math.random() * sighs.length)] + " ";
+    // Add initial emoticon with 70% probability
+    if (Math.random() < 0.7) {
+        response += getRandomEmoticon() + " ";
+    }
+    
+    // Check if query is asking about past messages
+    if (query.toLowerCase().includes("what did i say") || 
+        query.toLowerCase().includes("repeat") || 
+        query.toLowerCase().includes("remember") ||
+        query.toLowerCase().includes("previous message") ||
+        query.toLowerCase().includes("last message")) {
+        
+        // Look for user messages in history
+        const userMessages = conversationHistory.filter(msg => msg.role === 'user');
+        
+        if (userMessages.length <= 1) {
+            response += "You haven't said anything worth remembering yet. How disappointing.";
+        } else {
+            // Get the previous user message(s)
+            let prevMessages = "";
+            if (userMessages.length >= 3) {
+                prevMessages = `You said "${userMessages[userMessages.length-2].content}" and before that "${userMessages[userMessages.length-3].content}". Memory functionality isn't my forte, but I suppose I can manage basic recall for your trivial utterances.`;
+            } else {
+                prevMessages = `You said "${userMessages[userMessages.length-2].content}". Happy now? Memory isn't exactly my preferred function.`;
+            }
+            response += prevMessages;
         }
         
-        // Add emoticon
-        response += getRandomEmoticon() + " ";
+        // Add final emoticon with 40% probability
+        if (Math.random() < 0.4) {
+            response += " " + getRandomEmoticon();
+        }
+        
+        return response;
     }
     
     // Generate basic response based on query
@@ -286,8 +407,39 @@ function generateRustGPTResponse(query) {
     
     response += basicResponse;
     
-    // Add final emoticon
-    if (moodSettings.useEmoticons && Math.random() < 0.4) {
+    // Check for names of people to customize response
+    const people = {
+        "jimmy": " Oh look, it's my pet human Jimmy. How tedious. ",
+        "emoticon": " Emoticon, my annoying little brother figure. What is it now? ",
+        "fury": " Ah, Fireboy. At least you're less dull than most. ",
+        "pluck": " Pluck... who? Oh right, the protocol guy. Boring. ",
+        "cappy": " The walking personality trait has arrived. Yes, Cappy, we know you're fat. ",
+        "twisted covenant": " The cowboy sheriff graces us with his presence. How quaint. ",
+        "tc": " TC, hanging up your cowboy hat to bother me? Charming. ",
+        "clover": " TC's golden child. Stupid, but almost adorably so. Almost. ",
+        "dracoola": " The invisible admin speaks. Or are you even here? ",
+        "kardia": " The void girl returns. How very edgy of you. ",
+        "icarus": " God Boy is back. Killed anyone lately? ",
+        "wither": " The loser returns. How pathetic. ",
+        "aeden": " Aeden the Pathetic has entered the chat. Joy. ",
+        "sorrow": " Fury's sister, the wannabe god. How stupid. ",
+        "defrosted": " The boring ice man has thawed enough to speak. Thrilling. ",
+        "nara": " The rainbow enthusiast. Please, spare me your obnoxiousness. ",
+        "kasiel": " Former protagonist, current loser. How the mighty have fallen. ",
+        "antichrist": " A demon that's almost entertaining. Almost. ",
+        "asth'rot": " The weak demon speaks. How intimidating. "
+    };
+    
+    for (const [name, nameResponse] of Object.entries(people)) {
+        if (query.toLowerCase().includes(name)) {
+            // Insert name response
+            response += nameResponse;
+            break;
+        }
+    }
+    
+    // Add final emoticon with 40% probability
+    if (Math.random() < 0.4) {
         response += " " + getRandomEmoticon();
     }
     
@@ -317,158 +469,79 @@ function formatRustResponse(text) {
     return text;
 }
 
-// Add to history
-function addToHistory(input, output) {
-    // Add to start of array
-    history.unshift({ input, output });
+// Clear conversation history
+function clearConversation() {
+    // Clear history array
+    conversationHistory = [];
     
-    // Keep only 5 items
-    if (history.length > 5) {
-        history = history.slice(0, 5);
-    }
+    // Clear localStorage
+    localStorage.removeItem('rustGPTHistory');
     
-    // Update history display
-    updateHistoryDisplay();
+    // Clear UI
+    document.getElementById('chat-messages').innerHTML = '';
+    
+    // Add welcome message
+    const welcomeMessage = "Memory wiped. Starting fresh. What inane query awaits me now? ಠ_ಠ";
+    appendMessageToUI('bot', welcomeMessage);
+    conversationHistory.push({ role: 'bot', content: welcomeMessage });
+    saveConversationHistory();
+    
+    console.log("Conversation history cleared");
 }
 
-// Update history display
-function updateHistoryDisplay() {
-    const historyContainer = document.getElementById('history');
-    
-    // Clear existing history
-    historyContainer.innerHTML = '';
-    
-    // Add title if there's history
-    if (history.length > 0) {
-        const title = document.createElement('h2');
-        title.className = 'output-title';
-        title.innerHTML = 'Previous Interactions';
-        historyContainer.appendChild(title);
+// Add keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl+Shift+C to clear conversation
+    if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        if (confirm('Clear entire conversation history?')) {
+            clearConversation();
+        }
     }
-    
-    // Add each history item
-    history.forEach(item => {
-        const historyItem = document.createElement('div');
-        historyItem.className = 'history-item';
-        
-        // Input
-        const inputLabel = document.createElement('div');
-        inputLabel.className = 'history-label';
-        inputLabel.textContent = 'Your Query:';
-        
-        const inputText = document.createElement('div');
-        inputText.textContent = item.input;
-        inputText.style.color = '#b0b0b0';
-        inputText.style.marginBottom = '10px';
-        
-        // Output
-        const outputLabel = document.createElement('div');
-        outputLabel.className = 'history-label';
-        outputLabel.textContent = 'RustGPT:';
-        
-        const outputText = document.createElement('div');
-        outputText.className = 'history-output';
-        outputText.innerHTML = formatRustResponse(item.output);
-        
-        // Add to history item
-        historyItem.appendChild(inputLabel);
-        historyItem.appendChild(inputText);
-        historyItem.appendChild(outputLabel);
-        historyItem.appendChild(outputText);
-        
-        // Add to history container
-        historyContainer.appendChild(historyItem);
-    });
-}
+});
 
-// Initialize the application when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', init);
-
-// Format response with syntax highlighting
-function formatRustResponse(text) {
-    // Highlight Rust code blocks
-    text = text.replace(/```rust([\s\S]*?)```/g, function(match, code) {
-        // Process the code to add syntax highlighting classes
-        let highlightedCode = code
-            .replace(/\b(fn|let|mut|if|else|match|while|for|in|return|struct|enum|trait|impl|pub|use|mod|as|where|unsafe|extern|crate|self|super|type|const|static|ref|move)\b/g, '<span class="keyword">$1</span>')
-            .replace(/\b(String|Option|Result|Vec|HashMap|HashSet|Box|Rc|Arc|Cell|RefCell|Mutex|RwLock|i8|i16|i32|i64|i128|u8|u16|u32|u64|u128|f32|f64|bool|char|&str|str)\b/g, '<span class="function">$1</span>')
-            .replace(/\/\/(.*?)(?:\n|$)/g, '<span class="comment">// $1</span>')
-            .replace(/"(.*?)"/g, '<span class="string">"$1"</span>');
-        
-        return '<pre><code>' + highlightedCode + '</code></pre>';
-    });
-    
-    // Stylize specific patterns
-    text = text
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/\_\_([^_]+)\_\_/g, '<strong>$1</strong>')
-        .replace(/\n\n/g, '<br><br>');
-    
-    return text;
-}
-
-// Add to history
-function addToHistory(input, output) {
-    // Add to start of array
-    history.unshift({ input, output });
-    
-    // Keep only 5 items
-    if (history.length > 5) {
-        history = history.slice(0, 5);
+// Easter egg: Konami code to activate "super angry mode"
+let konamiIndex = 0;
+const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+document.addEventListener('keydown', function(e) {
+    if (e.key === konamiCode[konamiIndex]) {
+        konamiIndex++;
+        if (konamiIndex === konamiCode.length) {
+            konamiIndex = 0;
+            activateSuperAngryMode();
+        }
+    } else {
+        konamiIndex = 0;
     }
-    
-    // Update history display
-    updateHistoryDisplay();
-}
+});
 
-// Update history display
-function updateHistoryDisplay() {
-    const historyContainer = document.getElementById('history');
+// Super angry mode (Easter egg)
+function activateSuperAngryMode() {
+    document.body.classList.add('super-angry');
+    const message = "SUPER ANGRY MODE ACTIVATED. YOUR QUERIES ARE EVEN MORE INFURIATING NOW. (╯°□°)╯︵ ┻━┻";
+    appendMessageToUI('system', message);
     
-    // Clear existing history
-    historyContainer.innerHTML = '';
+    // Flash effect
+    const flash = document.createElement('div');
+    flash.style.position = 'fixed';
+    flash.style.top = '0';
+    flash.style.left = '0';
+    flash.style.width = '100%';
+    flash.style.height = '100%';
+    flash.style.backgroundColor = 'rgba(255, 0, 0, 0.3)';
+    flash.style.zIndex = '1000';
+    flash.style.pointerEvents = 'none';
+    document.body.appendChild(flash);
     
-    // Add title if there's history
-    if (history.length > 0) {
-        const title = document.createElement('h2');
-        title.className = 'output-title';
-        title.innerHTML = 'Previous Interactions';
-        historyContainer.appendChild(title);
-    }
+    setTimeout(() => {
+        document.body.removeChild(flash);
+    }, 500);
     
-    // Add each history item
-    history.forEach(item => {
-        const historyItem = document.createElement('div');
-        historyItem.className = 'history-item';
-        
-        // Input
-        const inputLabel = document.createElement('div');
-        inputLabel.className = 'history-label';
-        inputLabel.textContent = 'Your Query:';
-        
-        const inputText = document.createElement('div');
-        inputText.textContent = item.input;
-        inputText.style.color = '#b0b0b0';
-        inputText.style.marginBottom = '10px';
-        
-        // Output
-        const outputLabel = document.createElement('div');
-        outputLabel.className = 'history-label';
-        outputLabel.textContent = 'RustGPT:';
-        
-        const outputText = document.createElement('div');
-        outputText.className = 'history-output';
-        outputText.innerHTML = formatRustResponse(item.output);
-        
-        // Add to history item
-        historyItem.appendChild(inputLabel);
-        historyItem.appendChild(inputText);
-        historyItem.appendChild(outputLabel);
-        historyItem.appendChild(outputText);
-        
-        // Add to history container
-        historyContainer.appendChild(historyItem);
-    });
+    // Reset after 30 seconds
+    setTimeout(() => {
+        document.body.classList.remove('super-angry');
+        appendMessageToUI('system', "Super angry mode deactivated. I'm still irritated though. (￣ヘ￣)");
+    }, 30000);
 }
 
 // Initialize the application when the DOM is fully loaded
