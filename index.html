@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RustGPT - for Admins!</title>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,10 +14,58 @@
         <div class="rust-decoration"></div>
         <div class="rust-decoration"></div>
         
+        <!-- Weather effects container -->
+        <div id="weather-effect" class="weather-effect"></div>
+        
+        <!-- Sound button -->
+        <button id="sound-toggle" class="sound-button">
+            <i class="fas fa-volume-mute"></i>
+            <div class="sound-wave"></div>
+        </button>
+        
         <header>
             <h1 class="title">RustGPT</h1>
             <p class="description">Fuck off jimmy</p>
+            <div id="mood-indicator" class="mood-indicator">Neutral Mood</div>
         </header>
+        
+        <div class="fun-controls">
+            <div class="mood-toggle">
+                <span class="mood-label">Mood:</span>
+                <select id="mood-select" class="mood-select">
+                    <option value="neutral">Neutral</option>
+                    <option value="happy">Happy</option>
+                    <option value="sad">Sad</option>
+                    <option value="angry">Angry</option>
+                    <option value="sarcastic">Sarcastic</option>
+                </select>
+            </div>
+            
+            <div class="theme-toggle">
+                <span class="mood-label">Theme:</span>
+                <select id="theme-select" class="mood-select">
+                    <option value="neutral">Neutral</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="hacker">Hacker</option>
+                    <option value="rainbow">Rainbow</option>
+                </select>
+            </div>
+            
+            <div class="effect-toggle">
+                <label>
+                    <input type="checkbox" id="typewriter-toggle" class="fun-checkbox">
+                    <span class="fun-checkbox-label">Typewriter</span>
+                </label>
+                
+                <label>
+                    <input type="checkbox" id="weather-toggle" class="fun-checkbox">
+                    <span class="fun-checkbox-label">Weather</span>
+                </label>
+                
+                <button id="confetti-button" class="rainbow-button">Party Mode!</button>
+            </div>
+        </div>
         
         <div class="chat-container">
             <div id="chat-messages" class="chat-messages">
@@ -42,13 +91,36 @@
         
         <div id="errorMessage" class="error-message"></div>
         
-        <!-- Debug tools - can be removed in production -->
-        <div class="debug-tools" style="margin-top: 20px; text-align: center; opacity: 0.7; font-size: 0.8rem;">
-            <button onclick="clearConversation()" style="background: #333; color: #ccc; border: 1px solid #555; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                Clear History
+        <!-- Debug tools -->
+        <div class="debug-tools">
+            <button onclick="clearConversation()">
+                <i class="fas fa-trash-alt"></i> Clear History
+            </button>
+            <button onclick="toggleCheatSheet()">
+                <i class="fas fa-info-circle"></i> Shortcuts
             </button>
             <span style="margin-left: 10px; color: #888;">Tip: Press Ctrl+Shift+C to clear conversation</span>
         </div>
+        
+        <!-- Confetti container -->
+        <div id="confetti-container" class="confetti-container"></div>
+    </div>
+    
+    <!-- Cheat sheet modal -->
+    <div id="cheat-sheet" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(30,30,30,0.95); padding:20px; border-radius:10px; border:2px solid #f74c00; z-index:1000; max-width:500px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
+        <h3 style="color:#f74c00; margin-top:0;">Keyboard Shortcuts</h3>
+        <ul style="padding-left:20px; color:#e0e0e0;">
+            <li>Enter - Send message</li>
+            <li>Shift+Enter - New line</li>
+            <li>Ctrl+Shift+C - Clear conversation</li>
+            <li>Ctrl+Shift+D - Toggle dark mode</li>
+            <li>Ctrl+Shift+H - Toggle hacker mode</li>
+            <li>↑↑↓↓←→←→BA - Super Angry Mode</li>
+            <li>Ctrl+Shift+P - Party mode</li>
+            <li>Esc - Close this cheat sheet</li>
+        </ul>
+        <button onclick="toggleCheatSheet()" style="background:#f74c00; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; float:right;">Close</button>
+        <div style="clear:both;"></div>
     </div>
     
     <!-- Link to external JavaScript file -->
